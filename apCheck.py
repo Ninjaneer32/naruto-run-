@@ -1,5 +1,8 @@
 from scapy.all import Dot11, Dot11Beacon, Dot11Elt, RadioTap, sendp, hexdump, sniff # needed for generating packet
 import os # needed for OS commands
+import pandas # needed for display
+import time # needed for sleep
+from threading import Thread # needed for multithreading
 
 # used to scan for all wireless interfaces
 def scanInterface():
@@ -19,16 +22,62 @@ def enableMonitorMode(interface):
     os.system(f"iw dev {str(interface)} set type monitor")
     os.system(f"ip link set {str(interface)} up")
 
-ap_list = []
+# initialize the networks dataframe that will contain all access points nearby
+networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
+# set the index BSSID (MAC address of the AP)
+networks.set_index("BSSID", inplace=True)
 
-def PacketHandler(packet):
-    if packet.haslayer(Dot11):
-        if packet.type == 0 and packet.subtype == 8:
-            if packet.addr2 not in ap_list:
-                ap_list.append(packet.addr2)
-                print("Access Point MAC: %s with SSID: %s " %(packet.addr2, packet.info))
+def callback(packet):
+    if packet.haslayer(Dot11Beacon):
+        # extract the MAC address of the network
+        bssid = packet[Dot11].addr2
+        # get the name of it
+        ssid = packet[Dot11Elt].info.decode()
+        try:
+            dbm_signal = packet.dBm_AntSignal
+        except:
+            dbm_signal = "N/A"
+        # extract network stats
+        stats = packet[Dot11Beacon].network_stats()
+        # get the channel of the AP
+        channel = stats.get("channel")
+        # get the crypto
+        crypto = stats.get("crypto")
+        networks.loc[bssid] = (ssid, dbm_signal, channel, crypto)
 
-enableMonitorMode("wlx9cefd5fd14f7")
-sniff(iface="wlx9cefd5fd14f7", prn = PacketHandler)
+def print_all():
+    while True:
+        os.system("clear")
+        print(networks)
+        time.sleep(0.5)
+
+def change_channel():
+    ch = 1
+    while True:
+        os.system(f"iwconfig {interface} channel {ch}")
+        # switch channel from 1 to 14 each 0.5s
+        ch = ch % 14 + 1
+        time.sleep(0.5)
+
+
+
+
+if __name__ == "__main__":
+    # interface name, check using iwconfig
+    interface = "wlx9cefd5fcd2ba"
+    # start the thread that prints all the networks
+    printer = Thread(target=print_all)
+    printer.daemon = True
+    printer.start()
+    channel_changer = Thread(target=change_channel)
+    channel_changer.daemon = True
+    channel_changer.start()
+    # start sniffing
+    sniff(prn=callback, iface=interface)
+
+#enableMonitorMode("wlx9cefd5fcd2ba")
+#sniff(iface="wlx9cefd5fcd2ba", prn = PacketHandler)
+#enableMonitorMode("wlx9cefd5fd14f7")
+#sniff(iface="wlx9cefd5fd14f7", prn = PacketHandler)
 #enableMonitorMode("wlx00c0cab08f8d")
 #sniff(iface="wlx00c0cab08f8d", prn = PacketHandler)
