@@ -50,7 +50,7 @@ class APScanner:
                 if channel.isnumeric():
                     channels.append(channel)
 
-        print(str(channels))
+        #print(str(channels))
         return channels
 
     # enable monitor mode on the given interface
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         phy = phys[int(choice)]
 
     scanner = APScanner(interface, phy)
-    #scanner.startThreads(True, True, True)
+    scanner.startThreads(True, True, True)
 
     try:
         input("Press enter to stop...")
