@@ -1,4 +1,3 @@
-from yaml import scan
 from scapy.all import Dot11, Dot11Beacon, Dot11Elt, RadioTap, sendp, hexdump, sniff # needed for generating packet
 import os # needed for OS commands
 import pandas # needed for display
@@ -48,9 +47,10 @@ class APScanner:
         for line in list:
             if '[' in line:
                 channel = line.split("[")[1].split("]")[0]
-                channels.append(channel)
+                if channel.isnumeric():
+                    channels.append(channel)
 
-        #print(str(channels))
+        print(str(channels))
         return channels
 
     # enable monitor mode on the given interface
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         phy = phys[int(choice)]
 
     scanner = APScanner(interface, phy)
-    scanner.startThreads(True, True, True)
+    #scanner.startThreads(True, True, True)
 
     try:
         input("Press enter to stop...")
