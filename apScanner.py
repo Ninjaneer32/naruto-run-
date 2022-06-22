@@ -4,6 +4,64 @@ import pandas # needed for display
 import time # needed for sleep
 from threading import Thread, Event # needed for multithreading
 import subprocess # needed for OS commands
+import requests # needed for web downloads
+import csv # needed to read csv files
+
+class WifiTarget:
+    ''' Class that handles the wifi targets found by the sweeper '''
+
+    def __init__(self, bssid, ssid, dBm, ch, crypto):
+        ''' init method '''
+
+        self.maxTimeout = 3
+
+        self.bssid = bssid
+        self.ssid = ssid
+        self.dBm = dBm
+        self.ch = ch
+        self.crypto = crypto
+        self.timeOut = self.maxTimeout
+
+        # Key used for vendor lookup
+        self.key = str(self.bssid).replace(':','').upper()[0:6]
+        self.vendor = "Unknown"
+
+    def setVendor(self, vendor):
+        ''' Updates the vendor '''
+
+        self.vendor = vendor
+
+    def updateTimeout(self, ch):
+        ''' updates the timeout of the target object, \n ch: the channel currently being scanned \n Return True when timeout hits zero '''
+
+        # if the channel being scanned is the channel the target should be on
+        if ch == self.ch :
+            self.timeOut = self.timeOut - 1
+            
+            # if the timout has been reduced to zero
+            if self.timeOut <= 0 : 
+                return True
+            else: 
+                return False
+        else:
+            return False
+
+    def matchTarget(self, other):
+        ''' Comapares the BSSID of two objects to see if they match '''
+
+        if self.bssid == other.bssid : 
+            
+            self.ch = other.ch
+            self.crypto = other.crypto
+            self.ssid = other.ssid
+            self.dBm = other.dBm
+
+            self.timeOut = self.maxTimeout
+
+            return True
+
+        else:
+            return False
 
 class APScanner:
     ''' Class that handles the scanning of the APs '''
@@ -23,11 +81,22 @@ class APScanner:
 
         self.enableMonitorMode(self.interface)
         # initialize the networks dataframe that will contain all access points nearby
-        self.networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
+        self.networks = pandas.DataFrame(columns=["BSSID", "SSID", "Vendor", "dBm_Signal", "Channel", "Crypto"])
         # set the index BSSID (MAC address of the AP)
         self.networks.set_index("BSSID", inplace=True)
 
+        #stop event to allow a controlled exit
         self.stopEvent = Event()
+
+        # check to see if needed MAC list files exist
+        if os.path.isfile('mam.csv') and os.path.isfile('oui.csv') and os.path.isfile('oui36.csv'):
+            print('MAC list files found')
+        else:
+            print('MAC list files not found, downloading')
+            self.downloadMACLists()
+
+        print("Loading MAC Lists")
+        self.loadDictionary()
 
     def buildChannelList(self, phy):
         """
@@ -89,7 +158,10 @@ class APScanner:
             channel = stats.get("channel")
             # get the crypto
             crypto = stats.get("crypto")
-            self.networks.loc[bssid] = (ssid, dbm_signal, channel, crypto)
+
+            key = str(bssid).replace(':','').upper()[0:6]
+            vendor = self.vendorDict.get(key)
+            self.networks.loc[bssid] = (ssid, vendor, dbm_signal, channel, crypto)
 
     def print_all(self):
         while True:
@@ -134,7 +206,67 @@ class APScanner:
             sniffThread = Thread(target=self.scanThread, daemon=True)
             sniffThread.start()
 
+    def downloadMACLists(self):
+        """
+        Downloads the three MAC block files from the web into the local directory
+        """
 
+        # The URL to the MA-L CSV - the Large Block Registry
+        malURL = "http://standards-oui.ieee.org/oui/oui.csv"
+
+        # this is the URL to the MA-M CSV - the Medium Block Registry
+        mamURL = "http://standards-oui.ieee.org/oui28/mam.csv"
+
+        # this is the URL to the MA-S CSV - the Small Bloc Registry
+        masURL = "http://standards-oui.ieee.org/oui36/oui36.csv"
+
+        print("Starting downloads:")
+
+        # oui file
+        print("Downloading oui.csv")
+        data = requests.get(malURL)
+        with open('oui.csv', 'wb') as file:
+            file.write(data.content)
+
+        print("Downloading mam.csv")
+        # mam file
+        data = requests.get(mamURL)
+        with open('mam.csv', 'wb') as file:
+            file.write(data.content)
+
+        # oui36 file
+        print("Downloading oui36.csv")
+        data = requests.get(masURL)
+        with open('oui36.csv', 'wb') as file:
+            file.write(data.content)
+
+    def loadDictionary(self):
+        ''' Handles setting up the dictionary that will give the vendor identification'''
+
+        with open('oui.csv', mode='r') as infile: # large registry
+            reader = csv.reader(infile)
+
+            self.vendorDict = {rows[1]:rows[2] for rows in reader}
+
+            #print(f"{len(self.vendorDict)}")
+
+        with open('mam.csv', mode='r') as infile: # medium registry
+            reader = csv.reader(infile)
+
+            midDict = {rows[1]:rows[2] for rows in reader}
+
+            self.vendorDict.update(midDict)
+
+            #print(f"{len(self.vendorDict)}")
+
+        with open('oui36.csv', mode='r') as infile: # small registry
+            reader = csv.reader(infile)
+
+            smallDict = {rows[1]:rows[2] for rows in reader}
+
+            self.vendorDict.update(smallDict)
+
+            #print(f"{len(self.vendorDict)}")
 
     def stop(self):
         """
