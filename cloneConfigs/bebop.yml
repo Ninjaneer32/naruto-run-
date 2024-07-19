@@ -1,6 +1,5 @@
-startString: BebopDrone-K
-fillerType: num
-fillerLength: 6
+startString: BebopDrone-
+endString: LNNNNNN
 macs:
 - 903AE6
 - 00121C

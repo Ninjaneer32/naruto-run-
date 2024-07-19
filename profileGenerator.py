@@ -66,22 +66,21 @@ while True:
         
         ssidStartString = input("Enter whatever static string you want the decoy SSIDs to start with: ")
 
-        fillerType = int(input("Enter 1 for the filler values to be numbers, or 2 for it to be hex: "))
-
-        fillerLength = int(input("Enter the number of characters the filler part of the SSID should be: "))
-
+        ssidEndString = input("Create the pattern for the dynamic part of the SSID?  " + 
+                              "\nUse L to signify the character should be a random letter at this part of the string  " + 
+                              "\nUse N to signify the character should be a random number at this part of the string  " + 
+                              "\nUse H to signify the character should be a random hexadecimal value at this part of the string  " + 
+                              "\nUse A to signify the character should be a random alphanumeric character at this part of the string  " + 
+                              "\nUse anything else to be a static character at that point in the string" + 
+                              "\n\nEnter string: ")
+        
         fileName = input("Enter the file name for the profile:")
 
-        if fillerType == 1: 
-            filler = 'num'
-        else:
-            filler = 'hex'
 
         # bundles everything together into yaml data
         data = {
             "startString" : ssidStartString,
-            "fillerType" : filler, 
-            "fillerLength" : fillerLength, 
+            "endString" : ssidEndString, 
             "macs" : macList
         }
 
