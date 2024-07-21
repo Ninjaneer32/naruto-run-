@@ -1,7 +1,10 @@
 import yaml # needed to read config files
 from yaml.loader import SafeLoader # needed for loader
+
 import random # needed to generate random values
 import string # needed to access string lists of digits, letters, and hex
+import time # needed for sleep
+
 from tkinter import filedialog as fd # needed to simplify file selection
 
 
@@ -41,8 +44,34 @@ class Spoofer:
         self.ssidDynamic = endString
         self.macList = macList
         self.transmitter = nic
-        self.reservedChannels = reservedChannels
-        self.targetCount = targetCount
+
+        # set up network interface
+        self.nicSetup(nic, reservedChannels)
+
+        # generate targets
+        self.decoyGenerator(targetCount)
+
+
+    def nicSetup(self, nicName, reservedChannels):
+        """
+        Method to setup the network interface
+
+        Args:
+            nicName (str): the name of the network interface to use
+            reservedChannels (list): the list of channels to not transmit on
+        """
+
+        # TODO network setup stuff and build list of what channels the network interface can transmit on
+
+        possibleChannels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+        # create the list of valid channels
+        self.validChannels = []
+
+        for channel in possibleChannels:
+            if not channel in reservedChannels: # if the current channel is not in the reserve list, add it as a valid channel
+                self.validChannels.append(channel)
+
 
     def decoyGenerator(self, targetCount):
         """
@@ -51,6 +80,8 @@ class Spoofer:
         Args:
             targetCount (int): the total number of decoys to generate
         """
+
+        self.decoyList = [] # clear out the list of decoys, if any are in there
 
         for j in range(targetCount):
 
@@ -74,11 +105,30 @@ class Spoofer:
             while len(mac) < 12: # keep adding hex characters until we get to a valid mac address
                 mac = mac + random.choice(string.hexdigits.upper())
 
-            # TODO add in channel selection
+            # select the channel to transmit on
+            channel = random.choice(self.validChannels)
+
+            self.decoyList.append(Decoy(mac, decoySSID, channel))
 
             # debug stuff:
-            print(f"Decoy #{str(j)} : SSID: {decoySSID} MAC: {mac}")
+            print(f"Decoy #{str(j)} : SSID: {decoySSID} MAC: {mac} Channel: {str(channel)}")
 
+    def decoyLoop(self):
+
+        while True:
+
+            for decoy in self.decoyList:
+
+                # for debugging
+                print(f"SSID: {decoy.ssid}  MAC: {decoy.mac}  Channel: {str(decoy.channel)}")
+
+            # for debugging
+            print()
+            time.sleep(1)
+
+            # shuffle the order of all the decoys in the list after every loop
+            random.shuffle(self.decoyList)
+            
 
 
 
@@ -95,6 +145,6 @@ if __name__ == "__main__":
         endString = data['endString']
         addressList = data['macs']
 
-    droneSpoofer = Spoofer(startString, endString, addressList, "TBD", "TBD", "TBD")
+    droneSpoofer = Spoofer(startString, endString, addressList, "TBD", [], 3)
 
-    droneSpoofer.decoyGenerator(10)
+    droneSpoofer.decoyLoop()
