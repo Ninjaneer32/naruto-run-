@@ -24,6 +24,9 @@ class Decoy:
         self.channel = channel
         self.ssid = ssid
 
+    def toString(self):
+        return f"{self.ssid} {str(self.channel)} {self.mac}"
+
 
 class Spoofer:
 
@@ -111,7 +114,21 @@ class Spoofer:
             self.decoyList.append(Decoy(mac, decoySSID, channel))
 
             # debug stuff:
-            print(f"Decoy #{str(j)} : SSID: {decoySSID} MAC: {mac} Channel: {str(channel)}")
+            #print(f"Decoy #{str(j)} : SSID: {decoySSID} MAC: {mac} Channel: {str(channel)}")
+
+    def printStatus(self):
+        """
+        prints status of the spoofer to console
+        """
+
+        print(f"Using {self.transmitter} with the following possible transmission channels:")
+        print(f"{str(self.validChannels)}")
+        print()
+        print(f"Running {str(len(self.decoyList))} decoy targets")
+
+        for decoy in self.decoyList:
+            print(decoy.toString())
+        print()
 
     def decoyLoop(self):
 
@@ -145,6 +162,8 @@ if __name__ == "__main__":
         endString = data['endString']
         addressList = data['macs']
 
-    droneSpoofer = Spoofer(startString, endString, addressList, "TBD", [], 3)
+    droneSpoofer = Spoofer(startString, endString, addressList, "TBD", [1, 2, 3], 3)
+
+    droneSpoofer.printStatus()
 
     droneSpoofer.decoyLoop()
