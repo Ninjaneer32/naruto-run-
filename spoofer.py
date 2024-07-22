@@ -5,6 +5,13 @@ import random # needed to generate random values
 import string # needed to access string lists of digits, letters, and hex
 import time # needed for sleep
 
+import os # needed to run commands
+import sys # needed for system
+import subprocess # needed for subprocess calls
+
+from scapy.all import * # needed for writing the packets
+from threading import Thread # needed for multithreading
+
 from tkinter import filedialog as fd # needed to simplify file selection
 
 
@@ -49,24 +56,44 @@ class Spoofer:
         self.transmitter = nic
 
         # set up network interface
-        self.nicSetup(nic, reservedChannels)
+        self.nicSetup(reservedChannels)
 
         # generate targets
         self.decoyGenerator(targetCount)
 
+    def setupInterface(self):
+        ''' Puts the interface into monitor mode '''
 
-    def nicSetup(self, nicName, reservedChannels):
+        print(f"Placing {self.transmitter} into monitor mode")
+        os.system('ifconfig ' + self.transmitter + ' down')
+        try:
+            os.system('iwconfig ' + self.transmitter + ' mode monitor')
+        except:
+            print("Failed to setup monitor mode")
+            return False
+
+        os.system('ifconfig ' + self.transmitter + ' up')
+        
+        return True
+
+    def nicSetup(self, reservedChannels):
         """
         Method to setup the network interface
 
         Args:
-            nicName (str): the name of the network interface to use
             reservedChannels (list): the list of channels to not transmit on
         """
 
-        # TODO network setup stuff and build list of what channels the network interface can transmit on
+        self.setupInterface()
 
-        possibleChannels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        channelText = subprocess.run(['iwlist', str(self.transmitter) ,'freq'], capture_output=True, text=True).stdout
+        
+        # start with classic 2.4GHz Channels
+        possibleChannels = {'01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14'}
+        for line in channelText.splitlines():
+            #print(line)
+            if "Channel" in line and "Current" not in line:
+                possibleChannels.add(line.split()[1])
 
         # create the list of valid channels
         self.validChannels = []
@@ -108,6 +135,11 @@ class Spoofer:
             while len(mac) < 12: # keep adding hex characters until we get to a valid mac address
                 mac = mac + random.choice(string.hexdigits.upper())
 
+            # add ':' to mac
+            mac = mac.lower()
+            temp = ':'.join(mac[i:i+2] for i in range(0, len(mac), 2))
+            mac = temp
+
             # select the channel to transmit on
             channel = random.choice(self.validChannels)
 
@@ -121,7 +153,7 @@ class Spoofer:
         prints status of the spoofer to console
         """
 
-        print(f"Using {self.transmitter} with the following possible transmission channels:")
+        print(f"\nUsing {self.transmitter} with the following possible transmission channels:")
         print(f"{str(self.validChannels)}")
         print()
         print(f"Running {str(len(self.decoyList))} decoy targets")
@@ -139,9 +171,22 @@ class Spoofer:
                 # for debugging
                 print(f"SSID: {decoy.ssid}  MAC: {decoy.mac}  Channel: {str(decoy.channel)}")
 
+                os.system(f"iwconfig {self.transmitter} channel {decoy.channel}")
+                #os.system(f"iwconfig {self.transmitter} channel 01")
+
+                time.sleep(0.1)
+
+                dot11 = Dot11(type=0, subtype=8, addr1='ff:ff:ff:ff:ff:ff', addr2=decoy.mac, addr3=decoy.mac)
+                beacon = Dot11Beacon()
+                essid = Dot11Elt(ID='SSID',info=decoy.ssid, len=len(decoy.ssid))
+
+                frame = RadioTap()/dot11/beacon/essid
+
+                sendp(frame, iface=self.transmitter)
+
             # for debugging
-            print()
-            time.sleep(1)
+            #print()
+            #time.sleep(1)
 
             # shuffle the order of all the decoys in the list after every loop
             random.shuffle(self.decoyList)
@@ -153,6 +198,33 @@ if __name__ == "__main__":
 
     print("Starting spoofer")
 
+    interfaceList = []
+    results = subprocess.run(['iwconfig'], shell=True, capture_output=True, text=True)
+
+    for line in results.stdout.splitlines():
+
+        if not line.startswith(" "): # check to see if its the string with the interface name
+
+            firstWord = line.split()[0]
+            interfaceList.append(firstWord)
+
+    print("\nAvailable Interfaces:")
+    for i in range(len(interfaceList)):
+        print(f"{str(i)} : {interfaceList[i]}")
+
+    interfaceNum = input("Enter the number associated with the interface you want to use: ")
+
+    resrvChannelString = input("Enter the number for each of the wifi channels you do not want tp transmit on, space separated: ")
+
+    resrvList = resrvChannelString.split()
+
+    # add 0's to make everything two digits
+    for i in range(len(resrvList)):
+        if len(resrvList[i]) < 2:
+            resrvList[i] = '0' + resrvList[i]
+
+    targetCount = int(input("Enter the number of decoys to generate: "))
+
     configName = fd.askopenfilename(title="Select clone config file")
 
     with open(configName) as f:
@@ -162,7 +234,7 @@ if __name__ == "__main__":
         endString = data['endString']
         addressList = data['macs']
 
-    droneSpoofer = Spoofer(startString, endString, addressList, "TBD", [1, 2, 3], 3)
+    droneSpoofer = Spoofer(startString, endString, addressList, interfaceList[int(interfaceNum)], resrvList, targetCount)
 
     droneSpoofer.printStatus()
 
