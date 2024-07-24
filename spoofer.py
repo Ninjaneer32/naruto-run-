@@ -89,7 +89,7 @@ class Spoofer:
         channelText = subprocess.run(['iwlist', str(self.transmitter) ,'freq'], capture_output=True, text=True).stdout
         
         # start with classic 2.4GHz Channels
-        possibleChannels = {'01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14'}
+        possibleChannels = {'01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13'}
         for line in channelText.splitlines():
             #print(line)
             if "Channel" in line and "Current" not in line:
@@ -98,8 +98,12 @@ class Spoofer:
         # create the list of valid channels
         self.validChannels = []
 
-        for channel in possibleChannels:
-            if not channel in reservedChannels: # if the current channel is not in the reserve list, add it as a valid channel
+        if len(reservedChannels) > 0: # reserved list is not empty
+            for channel in possibleChannels:
+                if channel in reservedChannels: # if the current channel is in the reserve list, add it as a valid channel
+                    self.validChannels.append(channel)
+        else:
+            for channel in possibleChannels:
                 self.validChannels.append(channel)
 
 
@@ -169,20 +173,30 @@ class Spoofer:
             for decoy in self.decoyList:
 
                 # for debugging
-                print(f"SSID: {decoy.ssid}  MAC: {decoy.mac}  Channel: {str(decoy.channel)}")
+                #print(f"SSID: {decoy.ssid}  MAC: {decoy.mac}  Channel: {str(decoy.channel)}")
 
                 os.system(f"iwconfig {self.transmitter} channel {decoy.channel}")
                 #os.system(f"iwconfig {self.transmitter} channel 01")
 
-                time.sleep(0.1)
+                time.sleep(1)
 
                 dot11 = Dot11(type=0, subtype=8, addr1='ff:ff:ff:ff:ff:ff', addr2=decoy.mac, addr3=decoy.mac)
                 beacon = Dot11Beacon()
                 essid = Dot11Elt(ID='SSID',info=decoy.ssid, len=len(decoy.ssid))
+                rsn_array = [b'\x01\x00',
+                b'\x00\x0f\xac\x04',
+                b'\x02\x00',
+                b'\x00\x0f\xac\x04',
+                b'\x00\x0f\xac\x02',
+                b'\x01\x00',
+                b'\x00\x0f\xac\x02',
+                b'\x00\x00']
+                rsn_bytes = b''.join(rsn_array)
+                rsn = Dot11Elt(ID='RSNinfo', info=rsn_bytes, len=len(rsn_bytes))
 
-                frame = RadioTap()/dot11/beacon/essid
+                frame = RadioTap()/dot11/beacon/essid/rsn
 
-                sendp(frame, iface=self.transmitter)
+                sendp(frame, iface=self.transmitter, verbose=0)
 
             # for debugging
             #print()
@@ -214,7 +228,7 @@ if __name__ == "__main__":
 
     interfaceNum = input("Enter the number associated with the interface you want to use: ")
 
-    resrvChannelString = input("Enter the number for each of the wifi channels you do not want tp transmit on, space separated: ")
+    resrvChannelString = input("Enter the number for each of the wifi channels you do want to transmit on, space separated (leave blank for all possible): ")
 
     resrvList = resrvChannelString.split()
 
