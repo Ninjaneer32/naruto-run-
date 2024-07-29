@@ -4,13 +4,13 @@ Reclaim the sky with the power of Kage Bunshin no Jutsu
 
 ## What Is It?
 
-Naruto is a python based toolkit designed to generate RF decoys of valid drones so as to overwhelm and confuse opposing Counter-Unmanned Aerial Systems (C-UAS) systems.  It takes advantage of the fact that many modern small drones now use WiFi as their control data link, making it easy to generate false targets on relatively cheap hardware.  It works on C-UAS systems that target small group one drones, and use Radio Frequency (RF) analysis to track and detect drones.  
+Naruto is a Python-based toolkit designed to generate RF decoys of valid drones so as to overwhelm and confuse opposing Counter-Unmanned Aerial Systems (C-UAS) systems.  It takes advantage of the fact that many modern small drones now use WiFi as their control data link, making it easy to generate false targets on relatively cheap hardware.  It works on C-UAS systems that target small group one drones, and use Radio Frequency (RF) analysis to track and detect drones.  
 
 ## How To Use
 
 ### Hardware
 
-Because we use Scapy and iwconfig, we need a wireless network card, however because of the systems we are targeting, you don't actually need any sort of high power transmitter.  As such pretty much any cheap WiFi dongle will do.  
+Because we use Scapy and iwconfig, we need a wireless network card, however, because of the systems we are targeting, you don't need any sort of high-power transmitter as such pretty much any cheap WiFi dongle will do.  
 
 For my own testing, I used this hardware setup:
 
@@ -52,5 +52,8 @@ While running, the script will generate beacon broadcast packets for each of the
 | ![spoofer script](./images/allChannels.png) |
 | An example of running the spoofer script where you transmit on all possible channels. |
 | ![spoofer script](./images/channelSelect.png) |
-| An example of running the spoofer script where you transmit only on user defined WiFi channels. |
+| An example of running the spoofer script where you transmit only on user-defined WiFi channels. |
+
+
+Note, this fork of the repo is for capturing snapshots of the code used in test events and demos.  For active development, see the original repo [here](https://github.com/zeetwii/naruto)
 
